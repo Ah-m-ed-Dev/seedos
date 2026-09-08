@@ -1,38 +1,9 @@
 'use client';
 
-interface Project {
-  id: number;
-  title: string;
-  client: string;
-  status: string;
-  progress: number;
-  tasks: string;
-  assignee: string;
-  assigneeInitial: string;
-  dueDate: string;
-  dueStatus: string;
-  dueColor?: string;
-  budget: string;
-  received: string;
-  icon: string;
-  iconBg: string;
-  isOverdue?: boolean;
-  isCompleted?: boolean;
-  isQuote?: boolean;
-}
-
-interface KpiStats {
-  total: number;
-  inProgress: number;
-  inReview: number;
-  completed: number;
-  quotes: number;
-  totalBudget: string;
-}
+import { Project } from '@/lib/supabase/types';
 
 interface KpiCardsProps {
   projects: Project[];
-  stats: KpiStats;
 }
 
 interface KpiItem {
@@ -50,19 +21,32 @@ interface KpiItem {
   subtitleIcon?: string;
 }
 
-export default function KpiCards({ projects, stats }: KpiCardsProps) {
+export default function KpiCards({ projects }: KpiCardsProps) {
+  // حساب الإحصائيات من البيانات الفعلية
+  const total = projects.length;
+  const inProgress = projects.filter(p => p.status === 'قيد التطوير' || p.status === 'قيد التنفيذ').length;
+  const inReview = projects.filter(p => p.status === 'قيد المراجعة').length;
+  const completed = projects.filter(p => p.status === 'تم التسليم' || p.status === 'مكتمل').length;
+  const quotes = projects.filter(p => p.status === 'عرض سعر' || p.status === 'دفعة أولى').length;
+  
   // حساب نسبة الإنجاز الكلي
   const totalProgress = projects.length > 0 
-    ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length)
+    ? Math.round(projects.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.length)
     : 0;
 
   // حساب عدد المشاريع المتأخرة
   const overdueCount = projects.filter(p => p.isOverdue).length;
 
+  // حساب القيم المالية
+  const totalBudget = projects.reduce((sum, p) => {
+    const num = parseFloat(p.budget?.replace('$', '').replace(',', '') || '0');
+    return sum + (isNaN(num) ? 0 : num);
+  }, 0);
+
   const kpiData: KpiItem[] = [
     {
       title: 'إجمالي المشاريع',
-      value: stats.total,
+      value: total,
       icon: 'folder_open',
       iconColor: 'text-primary',
       barColor: 'bg-primary',
@@ -72,16 +56,16 @@ export default function KpiCards({ projects, stats }: KpiCardsProps) {
     },
     {
       title: 'قيد التطوير',
-      value: stats.inProgress,
+      value: inProgress,
       icon: 'code_blocks',
       iconColor: 'text-primary-container',
       barColor: 'bg-primary-container',
-      progress: stats.total > 0 ? Math.round((stats.inProgress / stats.total) * 100) : 0,
-      progressLabel: `من ${stats.total}`,
+      progress: total > 0 ? Math.round((inProgress / total) * 100) : 0,
+      progressLabel: `من ${total}`,
     },
     {
       title: 'قيد المراجعة',
-      value: stats.inReview,
+      value: inReview,
       icon: 'rate_review',
       iconColor: 'text-secondary-container',
       barColor: 'bg-secondary-container',
@@ -90,17 +74,17 @@ export default function KpiCards({ projects, stats }: KpiCardsProps) {
     },
     {
       title: 'عروض وأوليات',
-      value: stats.quotes,
+      value: quotes,
       icon: 'payments',
       iconColor: 'text-tertiary',
       barColor: 'bg-tertiary',
-      badge: stats.totalBudget,
+      badge: `$${totalBudget.toLocaleString()}`,
       badgeIcon: 'monetization_on',
       badgeColor: 'text-tertiary',
     },
     {
       title: 'تم التسليم',
-      value: stats.completed,
+      value: completed,
       icon: 'verified',
       iconColor: 'text-secondary',
       barColor: 'bg-secondary',
